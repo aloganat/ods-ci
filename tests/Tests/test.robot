@@ -14,11 +14,11 @@ Logged into OpenShift
    Login To Openshift  ${OCP_ADMIN_USER.USERNAME}  ${OCP_ADMIN_USER.PASSWORD}  ${OCP_ADMIN_USER.AUTH_TYPE}
 
 Can Launch Jupyterhub
-   [Tags]  Sanity  Smoke  ODS-115
+   [Tags]  Sanity  ODS-115
    Launch Jupyterhub
 
 Can Login to Jupyterhub
-   [Tags]  Sanity  Smoke  ODS-114
+   [Tags]  Sanity  ODS-114
    Login To Jupyterhub  ${OCP_ADMIN_USER.USERNAME}  ${OCP_ADMIN_USER.PASSWORD}  ${OCP_ADMIN_USER.AUTH_TYPE}
    ${authorization_required} =  Is Service Account Authorization Required
    Run Keyword If  ${authorization_required}  Authorize jupyterhub service account
