@@ -6,6 +6,7 @@ import re
 import subprocess
 import shutil
 import yaml
+import sys
 
 def parse_args():
     """Parse CLI arguments"""
@@ -24,11 +25,11 @@ def parse_args():
     parser.add_argument("-r", "--gitrepo",
                         help="config git repo for ods-ci tests",
                         action="store", dest="git_repo",
-                        default="https://gitlab.cee.redhat.com/aloganat/odhcluster.git")
+                        default="https://gitlab.cee.redhat.com/ods/odhcluster.git")
     parser.add_argument("-b", "--gitRepoBranch",
                         help="config git repo branch for ods-ci tests",
                         action="store", dest="git_repo_branch",
-                        default="update_cluster")
+                        default="master")
     parser.add_argument("-d", "--repoDir",
                         help="directory to clone the git repo",
                         action="store", dest="repo_dir",
@@ -36,15 +37,19 @@ def parse_args():
     parser.add_argument("-c", "--configtemplate",
                         help="absolute path of test config yaml file template",
                         action="store", dest="config_template",
-                        default="resources/configs/test-variables.yml")
+                        default="configs/test-variables.yml")
     parser.add_argument("-t", "--testcluster",
-                        help="polarion password",
+                        help="Test cluster. Eg: modh-qe-1",
                         action="store", dest="test_cluster",
                         required=True)
+    parser.add_argument("-s", "--skip-git-clone",
+                        help="If this option is used then cloning config git repo for ods-ci tests is skipped.",
+                        action="store_true", dest="skip_clone")
     return parser.parse_args()
 
 def clone_config_repo(**kwargs):
     """
+    Helper function to clone git repo
     """
     try:
        if os.path.exists(kwargs["repo_dir"]) and os.path.isdir(kwargs["repo_dir"]):
@@ -60,17 +65,20 @@ def clone_config_repo(**kwargs):
         git_repo_with_credens = re.sub(r'(https://)(.*)', r'\1' + git_credens + "@" + r'\2', kwargs["git_repo"])
     cmd = "git clone {} -b {} {}".format(git_repo_with_credens, kwargs["git_branch"], kwargs["repo_dir"])
     ret = subprocess.call(cmd, shell=True)
-    if not ret:
+    if ret:
         print("Failed to clone repo {}.".format(kwargs["git_repo"]))
+        sys.exit(1)
 
 def getConfigData(configFile):
     """
+    Reads the given config file and returns the contents of file in dict format
     """
     with open(configFile, 'r') as fh:
         return yaml.safe_load(fh)
 
 def generate_test_config_file(config_template, config_data, test_cluster):
     """
+    Generates test config file dynamically by substituting the values in a template file.
     """
     shutil.copy(config_template, '.')
     config_file = os.path.basename(config_template)
@@ -97,11 +105,14 @@ def main():
 
     args = parse_args()
 
-    clone_config_repo(git_repo = args.git_repo,
-                      git_branch = args.git_repo_branch,
-                      repo_dir = args.repo_dir,
-                      git_username = args.git_username,
-                      git_password = args.git_password)
+    if not args.skip_clone:
+        clone_config_repo(git_repo = args.git_repo,
+                          git_branch = args.git_repo_branch,
+                          repo_dir = args.repo_dir,
+                          git_username = args.git_username,
+                          git_password = args.git_password)
+    else:
+        print ("Skipping cloning of congig gitlab repo")
 
     config_file = args.repo_dir + "/test-variables.yml"
     config_data = getConfigData(config_file)
