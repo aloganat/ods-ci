@@ -8,8 +8,9 @@ import yaml
 import sys
 import uuid
 import subprocess
+dir_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(dir_path+"/../")
 
-sys.path.append("utils/scripts/")
 from util import clone_config_repo, read_yaml
 
 POLARION_URL = "https://polarion.engineering.redhat.com/polarion/import/xunit"

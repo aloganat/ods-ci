@@ -7,8 +7,8 @@ import subprocess
 import shutil
 import yaml
 import sys
-
-sys.path.append("utils/scripts/")
+dir_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(dir_path+"/../")
 from util import clone_config_repo, read_yaml
 
 def parse_args():
