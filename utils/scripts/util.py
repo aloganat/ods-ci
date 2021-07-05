@@ -3,6 +3,7 @@ import os
 import subprocess
 import shutil
 import yaml
+import re
 
 def clone_config_repo(**kwargs):
     """
