@@ -8,6 +8,9 @@ import shutil
 import yaml
 import sys
 
+sys.path.append("utils/scripts/")
+from util import clone_config_repo, read_yaml
+
 def parse_args():
     """Parse CLI arguments"""
     parser = argparse.ArgumentParser(
@@ -37,7 +40,7 @@ def parse_args():
     parser.add_argument("-c", "--configtemplate",
                         help="absolute path of test config yaml file template",
                         action="store", dest="config_template",
-                        default="configs/test-variables.yml")
+                        default="utils/scripts/testconfig/test-variables.yml")
     parser.add_argument("-t", "--testcluster",
                         help="Test cluster. Eg: modh-qe-1",
                         action="store", dest="test_cluster",
@@ -47,34 +50,6 @@ def parse_args():
                         action="store_true", dest="skip_clone")
     return parser.parse_args()
 
-def clone_config_repo(**kwargs):
-    """
-    Helper function to clone git repo
-    """
-    try:
-       if os.path.exists(kwargs["repo_dir"]) and os.path.isdir(kwargs["repo_dir"]):
-           shutil.rmtree(kwargs["repo_dir"])
-       os.makedirs(kwargs["repo_dir"])
-       print("git repo dir '%s' created successfully" % kwargs["repo_dir"])
-    except OSError as error:
-       print("git repo dir '%s' can not be created." % kwargs["repo_dir"])
-
-    git_repo_with_credens = kwargs["git_repo"]
-    if kwargs["git_username"] != "" and kwargs["git_password"] != "":
-        git_credens = "{}:{}".format(kwargs["git_username"], kwargs["git_password"])
-        git_repo_with_credens = re.sub(r'(https://)(.*)', r'\1' + git_credens + "@" + r'\2', kwargs["git_repo"])
-    cmd = "git clone {} -b {} {}".format(git_repo_with_credens, kwargs["git_branch"], kwargs["repo_dir"])
-    ret = subprocess.call(cmd, shell=True)
-    if ret:
-        print("Failed to clone repo {}.".format(kwargs["git_repo"]))
-        sys.exit(1)
-
-def getConfigData(configFile):
-    """
-    Reads the given config file and returns the contents of file in dict format
-    """
-    with open(configFile, 'r') as fh:
-        return yaml.safe_load(fh)
 
 def generate_test_config_file(config_template, config_data, test_cluster):
     """
@@ -106,16 +81,18 @@ def main():
     args = parse_args()
 
     if not args.skip_clone:
-        clone_config_repo(git_repo = args.git_repo,
-                          git_branch = args.git_repo_branch,
-                          repo_dir = args.repo_dir,
-                          git_username = args.git_username,
-                          git_password = args.git_password)
+        ret = clone_config_repo(git_repo = args.git_repo,
+                                git_branch = args.git_repo_branch,
+                                repo_dir = args.repo_dir,
+                                git_username = args.git_username,
+                                git_password = args.git_password)
+        if not ret:
+            sys.exit(1)
     else:
         print ("Skipping cloning of congig gitlab repo")
 
     config_file = args.repo_dir + "/test-variables.yml"
-    config_data = getConfigData(config_file)
+    config_data = read_yaml(config_file)
     
     # Generate test config file
     generate_test_config_file(args.config_template, config_data, args.test_cluster)
