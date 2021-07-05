@@ -15,7 +15,7 @@ from util import clone_config_repo, read_yaml
 
 POLARION_URL = "https://polarion.engineering.redhat.com/polarion/import/xunit"
 PYLERO_REPO = "https://github.com/RedHatQE/pylero.git"
-SCRIPT_DIR = "utils/scripts/polarion/"
+SCRIPT_DIR = dir_path
 
 def parse_args():
     """Parse CLI arguments"""
