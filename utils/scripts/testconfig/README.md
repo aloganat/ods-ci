@@ -20,7 +20,7 @@ Python 3.x
 In case if you have already cloned config repo(odhcluster.git), then use the command,
 
 ```
-# python3 utils/scripts/testconfig/generateTestConfigFile.py -s -t modh-qe-4 -d <directory where config repo is cloned>
+# python3 utils/scripts/testconfig/generateTestConfigFile.py -s -t <test_cluster> -d <directory where config repo is cloned>
 ```
 
 ## Usage
