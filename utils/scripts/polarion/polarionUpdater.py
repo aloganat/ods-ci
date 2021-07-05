@@ -16,6 +16,7 @@ from util import clone_config_repo, read_yaml
 POLARION_URL = "https://polarion.engineering.redhat.com/polarion/import/xunit"
 PYLERO_REPO = "https://github.com/RedHatQE/pylero.git"
 SCRIPT_DIR = dir_path
+print (SCRIPT_DIR)
 
 def parse_args():
     """Parse CLI arguments"""
@@ -61,6 +62,7 @@ def generate_polarion_config(config_template, config_data, testrun_title):
     """
     Generates test config file dynamically by substituting the values in a template file.
     """
+    print (config_template)
     shutil.copy(config_template, '.')
     config_file = os.path.basename(config_template)
     with open(config_file, 'r') as fh:
