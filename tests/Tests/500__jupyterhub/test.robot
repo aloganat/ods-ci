@@ -16,14 +16,15 @@ Logged into OpenShift
    Login To Openshift  ${TEST_USER.USERNAME}  ${TEST_USER.PASSWORD}  ${TEST_USER.AUTH_TYPE}
 
 Can Launch Jupyterhub
-   [Tags]  Sanity  Smoke  ODS-129
+   [Tags]  Sanity  Smoke  ODS-129  ODS-127
    #This keyword will work with accounts that are not cluster admins.
    Launch Jupyterhub via App
    Login To ODH Dashboard  ${TEST_USER.USERNAME}  ${TEST_USER.PASSWORD}  ${TEST_USER.AUTH_TYPE}
    Launch JupyterHub From ODH Dashboard Dropdown
 
 Can Login to Jupyterhub
-   [Tags]  Sanity  Smoke  ODS-128
+   [Tags]  Sanity  Smoke  ODS-128  ODS-129
+   [Documentation]  Example test can login JupyterHub
    Login To Jupyterhub  ${TEST_USER.USERNAME}  ${TEST_USER.PASSWORD}  ${TEST_USER.AUTH_TYPE}
    ${authorization_required} =  Is Service Account Authorization Required
    Run Keyword If  ${authorization_required}  Authorize jupyterhub service account
