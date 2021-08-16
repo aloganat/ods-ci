@@ -123,8 +123,7 @@ class OpenshiftClusterManager():
     def get_osd_cluster_info(self, config_file = "osd_config_file.yaml"):
         
         cluster_info = {}
-        #console_url = get_osd_cluster_console_url()
-        console_url = "https://console-openshift-console.apps.modh-qe-1.dev.datahub.redhat.com/"
+        console_url = self.get_osd_cluster_console_url()
         cluster_info['OCP_CONSOLE_URL'] = console_url
         
         odh_dashboard_url = console_url.replace('console-openshift-console', 'odh-dashboard-redhat-ods-applications')
@@ -272,6 +271,8 @@ class OpenshiftClusterManager():
             self.create_idp()
             self.add_user_to_group()
 
+        self.get_osd_cluster_info()
+
     def login(self):
 
         cmd = "ocm login --token=\"{}\" ".format(self.login_token)
@@ -349,8 +350,8 @@ if __name__ == '__main__':
     ocm_obj = OpenshiftClusterManager(args)
     ocm_obj.ocm_cli_install()
     ocm_obj.login()
-    #ocm_obj.setup_osd_cluster()
-    ocm_obj.get_osd_cluster_info()
+    ocm_obj.setup_osd_cluster()
+    #ocm_obj.get_osd_cluster_info()
     #ocm_obj.is_osd_cluster_exists()
     #ocm_obj.ocm_describe()
     #ocm_obj.is_osd_cluster_exists()
