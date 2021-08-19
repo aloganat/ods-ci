@@ -312,7 +312,7 @@ def parse_args():
                         help="testing platform. 'prod' or 'stage'",
                         action="store", dest="testing_platform",
                         default="stage")
-    parser.add_argument("-n", "--clustername",
+    parser.add_argument("-e", "--clustername",
                         help="osd cluster name",
                         action="store", dest="cluster_name",
                         default="osd-qe-1")
