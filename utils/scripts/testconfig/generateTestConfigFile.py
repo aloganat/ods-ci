@@ -46,10 +46,9 @@ def parse_args():
                         help="Test cluster. Eg: modh-qe-1",
                         action="store", dest="test_cluster",
                         required=True)
-    parser.add_argument("-o", "--token",
+    parser.add_argument("-o", "--setPromotheusToken",
                         help="append promotheus token to config file",
-                        action="store", dest="promotheus_token",
-                        required=True)
+                        action="store_true", dest="set_promotheus_token")
     parser.add_argument("-s", "--skip-git-clone",
                         help="If this option is used then cloning config git repo for ods-ci tests is skipped.",
                         action="store_true", dest="skip_clone")
@@ -116,7 +115,7 @@ def main():
     config_data = read_yaml(config_file)
     
     # Generate test config file
-    generate_test_config_file(args.config_template, config_data, args.test_cluster, args.promotheus_token)
+    generate_test_config_file(args.config_template, config_data, args.test_cluster, args.set_promotheus_token)
 
 
 if __name__ == '__main__':
