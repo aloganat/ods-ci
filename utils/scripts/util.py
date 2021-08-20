@@ -5,6 +5,7 @@ import shutil
 import yaml
 import re
 import sys
+import time
 
 def clone_config_repo(**kwargs):
     """
@@ -71,7 +72,7 @@ def oc_login(ocp_console_url, username, password, timeout=120):
     chk_flag = 0
     while (count <= timeout):
         out = execute_command(cmd)
-        if "Login successful" in out:
+        if ((out is not None) and ("Login successful" in out)):
             print ("Logged into cluster successfully")
             chk_flag = 1
             break;
