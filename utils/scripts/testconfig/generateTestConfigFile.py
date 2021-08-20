@@ -85,8 +85,8 @@ def generate_test_config_file(config_template, config_data, test_cluster):
     oc_login(data["OCP_CONSOLE_URL"], data["OCP_ADMIN_USER"]["USERNAME"], data["OCP_ADMIN_USER"]["PASSWORD"])
 
     # Get prometheus token for test cluster
-    prometheus_token = get_prometheus_token(test_cluster, "redhat-ods-monitoring")
-    data["RHODS_PROMETHEUS_TOKEN"] = prometheus_token
+    #prometheus_token = get_prometheus_token(test_cluster, "redhat-ods-monitoring")
+    #data["RHODS_PROMETHEUS_TOKEN"] = prometheus_token
 
     with open(config_file, 'w') as yaml_file:
         yaml_file.write( yaml.dump(data, default_flow_style=False, sort_keys=False))
