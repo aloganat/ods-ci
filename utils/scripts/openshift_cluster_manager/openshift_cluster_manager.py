@@ -188,7 +188,9 @@ class OpenshiftClusterManager():
         """Helper module to render jinja template"""
 
         try:
-            templateLoader = jinja2.FileSystemLoader(searchpath="./templates")
+            templateLoader = jinja2.FileSystemLoader(
+                searchpath=os.path.abspath(
+                    os.path.dirname(__file__)) + "/templates")
             templateEnv = jinja2.Environment(loader=templateLoader)
             template = templateEnv.get_template(template_file)
             outputText = template.render(replace_vars)
@@ -314,6 +316,10 @@ class OpenshiftClusterManager():
             self.create_idp()
             self.add_user_to_group()
 
+        # Waiting 5 minutes to ensure all the cluster services are
+        # up even after cluster is in ready state
+
+        time.sleep(300)
         self.get_osd_cluster_info()
 
     def login(self):
