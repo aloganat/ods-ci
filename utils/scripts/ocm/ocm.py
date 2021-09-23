@@ -550,7 +550,7 @@ def parse_args():
     parser.add_argument("-d", "--delete-ldap-idp",
                         help="delete ldap idp",
                         action="store_true", dest="delete_ldap_idp")
-    parser.add_argument("-y", "--delete-cluster",
+    parser.add_argument("-g", "--delete-cluster",
                         help="delete osd cluster",
                         action="store_true", dest="delete_cluster")
     parser.add_argument("-o", "--ocmclibinaryurl",
