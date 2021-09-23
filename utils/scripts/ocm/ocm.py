@@ -453,6 +453,17 @@ class OpenshiftClusterManager():
             print("Failed to login to aws openshift platform using token")
             sys.exit(1)
 
+    def delete_cluster(self):
+        """ Delete OSD Cluster"""
+
+        cluster_id = self.get_osd_cluster_id()
+        cmd = "ocm delete cluster {}".format(cluster_id)
+
+        ret = execute_command(cmd)
+        if ret is None:
+            print("Failed to delete osd cluster {}".format(self.cluster_name))
+            sys.exit(1)
+
 
 def parse_args():
     """Parse CLI arguments"""
@@ -539,6 +550,9 @@ def parse_args():
     parser.add_argument("-d", "--delete-ldap-idp",
                         help="delete ldap idp",
                         action="store_true", dest="delete_ldap_idp")
+    parser.add_argument("-j", "--delete-cluster",
+                        help="delete osd cluster",
+                        action="store_true", dest="delete_cluster")
     parser.add_argument("-o", "--ocmclibinaryurl",
                         help="ocm cli binary url",
                         action="store", dest="ocm_cli_binary_url",
