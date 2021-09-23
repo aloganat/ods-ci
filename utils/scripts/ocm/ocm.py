@@ -591,3 +591,7 @@ if __name__ == '__main__':
             # TODO: Add wait mechanism to let ldap IDP
             # deletion to be in action in cluster
             time.sleep(120)
+
+    if bool(args.delete_cluster):
+        ocm_obj.delete_cluster()
+
