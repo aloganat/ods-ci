@@ -190,6 +190,26 @@ class OpenshiftClusterManager():
                    " EXITING".format(self.cluster_name))
             sys.exit(1)
 
+    def wait_for_osd_cluster_to_be_deleted(self, timeout=3600):
+        """Waits for cluster to get deleted"""
+
+        cluster_exists = self.is_osd_cluster_exists()
+        count = 0
+        check_flag = False
+        while(count <= timeout):
+            cluster_exists = self.is_osd_cluster_exists()
+            if not cluster_exists:
+                print ("{} is deleted".format(self.cluster_name))
+                check_flag = True
+                break
+
+            time.sleep(60)
+            count += 60
+        if not check_flag:
+            print ("{} not deleted even after an hour."
+                   " EXITING".format(self.cluster_name))
+            sys.exit(1)
+
     def _render_template(self, template_file, output_file, replace_vars):
         """Helper module to render jinja template"""
 
@@ -593,5 +613,6 @@ if __name__ == '__main__':
             time.sleep(120)
 
     if bool(args.delete_cluster):
+        print ("Deleting OSD Cluster...")
         ocm_obj.delete_cluster()
-
+        ocm_obj.wait_for_osd_cluster_to_be_deleted()
