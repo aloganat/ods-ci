@@ -301,6 +301,25 @@ class OpenshiftClusterManager():
                   "{}".format(self.cluster_name))
             sys.exit(1)
 
+    def delete_cluster_using_addon(self):
+        """Installs RHODS addon"""
+        replace_vars = {
+                       "CLUSTER_ID": self.cluster_name,
+                       "ADDON_NAME": "managed-odh"
+                       }
+        template_file = "install_addon.jinja"
+        output_file = "install_rhods.json"
+        self._render_template(template_file, output_file, replace_vars)
+
+        cluster_id = self.get_osd_cluster_id()
+        cmd = ("ocm post /api/clusters_mgmt/v1/clusters/{}/addons "
+               "--body={}".format(cluster_id, output_file))
+        ret = execute_command(cmd)
+        if ret is None:
+            print("Failed to install rhods addon on cluster "
+                  "{}".format(self.cluster_name))
+            sys.exit(1)
+
     def create_idp(self, type="htpasswd"):
         """Creates Identity Provider"""
 
@@ -582,6 +601,9 @@ def parse_args():
     parser.add_argument("-g", "--delete-cluster",
                         help="delete osd cluster",
                         action="store_true", dest="delete_cluster")
+    parser.add_argument("--delete-cluster-using-addon",
+                        help="delete osd cluster using addon",
+                        action="store_true", dest="delete_cluster_using_addon")
     parser.add_argument("-o", "--ocmclibinaryurl",
                         help="ocm cli binary url",
                         action="store", dest="ocm_cli_binary_url",
@@ -624,6 +646,13 @@ if __name__ == '__main__':
     if bool(args.delete_cluster):
         print ("Deleting OSD Cluster...")
         ocm_obj.delete_cluster()
+
+        print ("Wait for cluster to get deleted")
+        ocm_obj.wait_for_osd_cluster_to_get_deleted()
+
+    if bool(args.delete_cluster_using_addon):
+        print ("Deleting OSD Cluster using addon...")
+        ocm_obj.delete_cluster_using_addon()
 
         print ("Wait for cluster to get deleted")
         ocm_obj.wait_for_osd_cluster_to_get_deleted()
