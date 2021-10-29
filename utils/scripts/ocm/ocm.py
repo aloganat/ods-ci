@@ -325,14 +325,16 @@ class OpenshiftClusterManager():
     def uninstall_addon(self, addon_name="managed-odh"):
         """Uninstalls addon"""
 
-        cluster_id = self.get_osd_cluster_id()
-        cmd = ("ocm delete /api/clusters_mgmt/v1/clusters/{}/addons/"
-               "{}".format(cluster_id, addon_name))
-        ret = execute_command(cmd)
-        if ret is None:
-            print("Failed to uninstall {} addon on cluster "
-                  "{}".format(addon_name, self.cluster_name))
-            sys.exit(1)
+        addon_state = self.get_addon_state(addon_name)
+        if addon_state != "not installed":
+            cluster_id = self.get_osd_cluster_id()
+            cmd = ("ocm delete /api/clusters_mgmt/v1/clusters/{}/addons/"
+                   "{}".format(cluster_id, addon_name))
+            ret = execute_command(cmd)
+            if ret is None:
+                print("Failed to uninstall {} addon on cluster "
+                      "{}".format(addon_name, self.cluster_name))
+                sys.exit(1)
 
     def install_rhods(self):
         """Installs RHODS addon"""
