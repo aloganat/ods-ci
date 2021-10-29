@@ -259,7 +259,7 @@ class OpenshiftClusterManager():
             count += 60
         if not check_flag:
             print ("addon {} not in installed state even after "
-                   "30minutes. EXITING".format(addon_name))
+                   "60 minutes. EXITING".format(addon_name))
             sys.exit(1)
 
     def wait_for_addon_uninstallation_to_complete(self, addon_name="managed-odh",
@@ -280,7 +280,7 @@ class OpenshiftClusterManager():
             count += 60
         if not check_flag:
             print ("addon {} not in uninstalled state even after "
-                   "30minutes. EXITING".format(addon_name))
+                   "60 minutes. EXITING".format(addon_name))
             sys.exit(1)
 
     def list_idps(self):
@@ -303,14 +303,14 @@ class OpenshiftClusterManager():
             return True
         return False
 
-    def install_rhods(self):
-        """Installs RHODS addon"""
+    def install_addon(self, addon_name="managed-odh"):
+        """Installs addon"""
         replace_vars = {
                        "CLUSTER_ID": self.cluster_name,
-                       "ADDON_NAME": "managed-odh"
+                       "ADDON_NAME": addon_name
                        }
         template_file = "install_addon.jinja"
-        output_file = "install_rhods.json"
+        output_file = "install_operator.json"
         self._render_template(template_file, output_file, replace_vars)
 
         cluster_id = self.get_osd_cluster_id()
@@ -318,31 +318,29 @@ class OpenshiftClusterManager():
                "--body={}".format(cluster_id, output_file))
         ret = execute_command(cmd)
         if ret is None:
-            print("Failed to install rhods addon on cluster "
-                  "{}".format(self.cluster_name))
+            print("Failed to install {} addon on cluster "
+                  "{}".format(addon_name, self.cluster_name))
             sys.exit(1)
+
+    def uninstall_addon(self, addon_name="managed-odh"):
+        """Uninstalls addon"""
+
+        cluster_id = self.get_osd_cluster_id()
+        cmd = ("ocm delete /api/clusters_mgmt/v1/clusters/{}/addons/"
+               "{}".format(cluster_id, addon_name))
+        ret = execute_command(cmd)
+        if ret is None:
+            print("Failed to uninstall {} addon on cluster "
+                  "{}".format(addon_name, self.cluster_name))
+            sys.exit(1)
+
+    def install_rhods(self):
+        """Installs RHODS addon"""
+        self.install_addon(addon_name="managed-odh")
 
     def uninstall_rhods(self):
         """Uninstalls RHODS addon"""
-        """
-        replace_vars = {
-                       "CLUSTER_ID": self.cluster_name,
-                       "ADDON_NAME": "managed-odh"
-                       }
-        template_file = "install_addon.jinja"
-        output_file = "install_rhods.json"
-        self._render_template(template_file, output_file, replace_vars)
-
-        cluster_id = self.get_osd_cluster_id()
-        cmd = ("ocm post /api/clusters_mgmt/v1/clusters/{}/addons "
-               "--body={}".format(cluster_id, output_file))
-        ret = execute_command(cmd)
-        if ret is None:
-            print("Failed to install rhods addon on cluster "
-                  "{}".format(self.cluster_name))
-            sys.exit(1)
-        """
-        print ("TODO")
+        self.uninstall_addon(addon_name="managed-odh")
 
     def create_idp(self, type="htpasswd"):
         """Creates Identity Provider"""
