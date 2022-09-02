@@ -8,6 +8,8 @@ import sys
 import jinja2
 import time
 import glob
+import io
+from contextlib import redirect_stdout, redirect_stderr
 
 dir_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(dir_path + "/../")
@@ -26,7 +28,7 @@ Class for Openshift Cluster Manager
 """
 
 
-class OpenshiftClusterManager():
+class OpenshiftClusterManager:
     def __init__(self, args={}):
 
         # Initialize instance variables
@@ -41,8 +43,20 @@ class OpenshiftClusterManager():
         self.num_compute_nodes = args.get("num_compute_nodes")
         self.openshift_version = args.get("openshift_version")
         self.channel_group = args.get("channel_group")
+        self.cloud_provider = args.get("cloud_provider")
+        self.gcp_sa_project_id = args.get("gcp_sa_project_id")
+        self.gcp_sa_private_key_id = args.get("gcp_sa_priv_key_id")
+        self.gcp_sa_private_key = args.get("gcp_sa_priv_key")
+        self.gcp_sa_client_id = args.get("gcp_sa_client_id")
+        self.gcp_sa_client_email = args.get("gcp_sa_client_email")
+        self.gcp_sa_client_cert_url = args.get("gcp_sa_client_cert_url")
+        self.compute_nodes = args.get("compute_nodes")
+        self.region = args.get("region")
+        self.compute_machine_type = args.get("compute_machine_type")
         self.ocm_cli_binary_url = args.get("ocm_cli_binary_url")
-        self.num_users_to_create_per_group = args.get("num_users_to_create_per_group")
+        self.num_users_to_create_per_group = args.get(
+            "num_users_to_create_per_group"
+        )
         self.htpasswd_cluster_admin = args.get("htpasswd_cluster_admin")
         self.htpasswd_cluster_password = args.get("htpasswd_cluster_password")
         self.ldap_url = args.get("ldap_url")
@@ -62,6 +76,7 @@ class OpenshiftClusterManager():
         self.osd_major_version = args.get("osd_major_version")
         self.osd_latest_version_data = args.get("osd_latest_version_data")
         self.new_run = args.get("new_run")
+        self.service_account_file = "create_gcp_sa_json.json"
         ocm_env = glob.glob(dir_path + "/../../../ocm.json.*")
         if ocm_env != []:
             os.environ["OCM_CONFIG"] = ocm_env[0]
@@ -103,8 +118,9 @@ class OpenshiftClusterManager():
         ret = execute_command(cmd)
         if ret is None:
             log.info(
-                "ocm describe for cluster " "{} failed".format(
-                    self.cluster_name))
+                "ocm describe for cluster "
+                "{} failed".format(self.cluster_name)
+            )
             return None
         return ret
 
@@ -113,7 +129,8 @@ class OpenshiftClusterManager():
         ret = self.ocm_describe()
         if ret is None:
             log.info(
-                "ocm cluster with name " "{} not exists!".format(self.cluster_name)
+                "ocm cluster with name "
+                "{} not exists!".format(self.cluster_name)
             )
             return False
         log.info("ocm cluster with name {} exists!".format(self.cluster_name))
@@ -122,7 +139,9 @@ class OpenshiftClusterManager():
     def osd_cluster_create(self):
         """Creates OSD cluster"""
 
-        if (self.channel_group == "candidate") and (self.testing_platform == "prod"):
+        if (self.channel_group == "candidate") and (
+            self.testing_platform == "prod"
+        ):
             log.error(
                 "Channel group 'candidate' is available only for stage environment."
             )
@@ -130,7 +149,9 @@ class OpenshiftClusterManager():
 
         version = ""
         if self.openshift_version != "":
-            version_match = re.match(r"(\d+\.\d+)\-latest", self.openshift_version)
+            version_match = re.match(
+                r"(\d+\.\d+)\-latest", self.openshift_version
+            )
             if version_match is not None:
                 version = version_match.group(1)
                 chan_grp = ""
@@ -156,7 +177,8 @@ class OpenshiftClusterManager():
         channel_grp = ""
         if self.channel_group != "":
             if (self.channel_group == "stable") or (
-                    self.channel_group == "candidate"):
+                self.channel_group == "candidate"
+            ):
                 if version == "":
                     log.error(
                         (
@@ -166,34 +188,56 @@ class OpenshiftClusterManager():
                     )
                     sys.exit(1)
                 else:
-                    channel_grp = "--channel-group {} ".format(self.channel_group)
+                    channel_grp = "--channel-group {} ".format(
+                        self.channel_group
+                    )
             else:
                 log.error(
                     "Invalid channel group. Values can be 'stable' or 'candidate'."
                 )
 
-        cmd = (
-            "ocm create cluster --aws-account-id {} "
-            "--aws-access-key-id {} --aws-secret-access-key {} "
-            "--ccs --region {} --compute-nodes {} "
-            "--compute-machine-type {} {} {}"
-            "{}".format(
-                self.aws_account_id,
-                self.aws_access_key_id,
-                self.aws_secret_access_key,
-                self.aws_region,
-                self.num_compute_nodes,
-                self.aws_instance_type,
-                version,
-                channel_grp,
-                self.cluster_name,
+        if self.cloud_provider == "aws":
+            cmd = (
+                "ocm create cluster --aws-account-id {} "
+                "--aws-access-key-id {} --aws-secret-access-key {} "
+                "--ccs --region {} --compute-nodes {} "
+                "--compute-machine-type {} {} {}"
+                "{}".format(
+                    self.aws_account_id,
+                    self.aws_access_key_id,
+                    self.aws_secret_access_key,
+                    self.aws_region,
+                    self.num_compute_nodes,
+                    self.aws_instance_type,
+                    version,
+                    channel_grp,
+                    self.cluster_name,
+                )
             )
-        )
+        elif self.cloud_provider == "gcp":
+            # Create service account file
+            self._create_service_account_file()
+            cmd = (
+                "ocm create cluster --provider {} --service-account-file {} "
+                "--ccs --region {} --compute-nodes {} "
+                "--compute-machine-type {} {} {}"
+                "{}".format(
+                    self.cloud_provider,
+                    self.service_account_file,
+                    self.region,
+                    self.compute_nodes,
+                    self.compute_machine_type,
+                    version,
+                    channel_grp,
+                    self.cluster_name,
+                )
+            )
         log.info("CMD: {}".format(cmd))
         ret = execute_command(cmd)
         if ret is None:
-            log.info("Failed to create osd cluster {}".format(
-                self.cluster_name))
+            log.info(
+                "Failed to create osd cluster {}".format(self.cluster_name)
+            )
             sys.exit(1)
 
     def get_osd_cluster_id(self):
@@ -224,7 +268,8 @@ class OpenshiftClusterManager():
         """Gets osd cluster version"""
 
         cluster_version = self.ocm_describe(
-            filter="--json | jq -r '.version.raw_id'")
+            filter="--json | jq -r '.version.raw_id'"
+        )
         if cluster_version is None:
             log.info(
                 "Unable to retrieve cluster version for "
@@ -256,7 +301,7 @@ class OpenshiftClusterManager():
         cluster_info["CLUSTER_VERSION"] = cluster_version
         odh_dashboard_url = console_url.replace(
             "console-openshift-console",
-            "rhods-dashboard-redhat-ods-applications"
+            "rhods-dashboard-redhat-ods-applications",
         )
         cluster_info["ODH_DASHBOARD_URL"] = odh_dashboard_url
         # TODO: Avoid this hard coding and call
@@ -266,7 +311,9 @@ class OpenshiftClusterManager():
         cluster_info["TEST_USER"]["USERNAME"] = "ldap-admin1"
         cluster_info["OCP_ADMIN_USER"] = {}
         cluster_info["OCP_ADMIN_USER"]["AUTH_TYPE"] = "htpasswd-cluster-admin"
-        cluster_info["OCP_ADMIN_USER"]["USERNAME"] = "htpasswd-cluster-admin-user"
+        cluster_info["OCP_ADMIN_USER"][
+            "USERNAME"
+        ] = "htpasswd-cluster-admin-user"
         osd_cluster_info = {}
         osd_cluster_info[self.cluster_name] = cluster_info
         with open(config_file, "w") as file:
@@ -306,8 +353,8 @@ class OpenshiftClusterManager():
                 break
             elif cluster_state == "error":
                 log.info(
-                    "{} is in error state. Hence " "exiting!!".format(
-                        self.cluster_name)
+                    "{} is in error state. Hence "
+                    "exiting!!".format(self.cluster_name)
                 )
                 sys.exit(1)
 
@@ -325,8 +372,8 @@ class OpenshiftClusterManager():
 
         try:
             templateLoader = jinja2.FileSystemLoader(
-                searchpath=os.path.abspath(
-                    os.path.dirname(__file__)) + "/templates"
+                searchpath=os.path.abspath(os.path.dirname(__file__))
+                + "/templates"
             )
             templateEnv = jinja2.Environment(loader=templateLoader)
             template = templateEnv.get_template(template_file)
@@ -359,8 +406,11 @@ class OpenshiftClusterManager():
     def get_addon_state(self, addon_name="managed-odh"):
         """Gets given addon's state"""
 
-        cmd = ("ocm list addons --cluster {} --columns id,state"
-               " | grep " "{} ".format(self.cluster_name, addon_name))
+        cmd = (
+            "ocm list addons --cluster {} --columns id,state"
+            " | grep "
+            "{} ".format(self.cluster_name, addon_name)
+        )
         ret = execute_command(cmd)
         if ret is None:
             log.info(
@@ -388,7 +438,10 @@ class OpenshiftClusterManager():
 
     def add_machine_pool(self):
         """Adds machine pool to the given cluster"""
-        if bool(self.reuse_machine_pool) and self.check_if_machine_pool_exists():
+        if (
+            bool(self.reuse_machine_pool)
+            and self.check_if_machine_pool_exists()
+        ):
             log.info(
                 "MachinePool with name {} exists in cluster "
                 "{}. Hence "
@@ -410,8 +463,9 @@ class OpenshiftClusterManager():
             log.info("CMD: {}".format(cmd))
             ret = execute_command(cmd)
             if ret is None:
-                log.info("Failed to add machine pool {}".format(
-                    self.cluster_name))
+                log.info(
+                    "Failed to add machine pool {}".format(self.cluster_name)
+                )
                 sys.exit(1)
             time.sleep(60)
 
@@ -466,7 +520,9 @@ class OpenshiftClusterManager():
     def list_idps(self):
         """Lists IDPs for the cluster"""
 
-        cmd = "ocm list idps --cluster {} --columns name".format(self.cluster_name)
+        cmd = "ocm list idps --cluster {} --columns name".format(
+            self.cluster_name
+        )
         ret = execute_command(cmd)
         if ret is None:
             return []
@@ -488,8 +544,10 @@ class OpenshiftClusterManager():
         addon_state = self.get_addon_state(addon_name)
         if addon_state != "not installed":
             cluster_id = self.get_osd_cluster_id()
-            cmd = ("ocm delete /api/clusters_mgmt/v1/clusters/{}/addons/"
-                   "{}".format(cluster_id, addon_name))
+            cmd = (
+                "ocm delete /api/clusters_mgmt/v1/clusters/{}/addons/"
+                "{}".format(cluster_id, addon_name)
+            )
             log.info("CMD: {}".format(cmd))
             ret = execute_command(cmd)
             if ret is None:
@@ -536,7 +594,7 @@ class OpenshiftClusterManager():
         """Installs addon"""
         replace_vars = {
             "CLUSTER_ID": self.cluster_name,
-            "ADDON_NAME": addon_name
+            "ADDON_NAME": addon_name,
         }
         if add_replace_vars:
             replace_vars.update(add_replace_vars)
@@ -545,8 +603,9 @@ class OpenshiftClusterManager():
         output_file = output_filename
         self._render_template(template_file, output_file, replace_vars)
         cluster_id = self.get_osd_cluster_id()
-        cmd = "ocm post /api/clusters_mgmt/v1/clusters/{}/addons " "--body={}".format(
-            cluster_id, output_file
+        cmd = (
+            "ocm post /api/clusters_mgmt/v1/clusters/{}/addons "
+            "--body={}".format(cluster_id, output_file)
         )
         log.info("CMD: {}".format(cmd))
         ret = execute_command(cmd)
@@ -593,7 +652,9 @@ class OpenshiftClusterManager():
                 break
         if not found:
             log.error(
-                "{} object called {} not found (ns: {}).".format(kind, name, namespace)
+                "{} object called {} not found (ns: {}).".format(
+                    kind, name, namespace
+                )
             )
         return found
 
@@ -623,9 +684,9 @@ class OpenshiftClusterManager():
                 if exit_on_failure:
                     sys.exit(1)
 
-            cmd = ("""oc patch rhmi rhoam -n redhat-rhoam-operator \
+            cmd = """oc patch rhmi rhoam -n redhat-rhoam-operator \
                    --type=merge --patch '{\"spec\":{\"useClusterStorage\":
-                    \"false\"}}'""")
+                    \"false\"}}'"""
             log.info("CMD: {}".format(cmd))
             ret = execute_command(cmd)
             log.info("\nRET: {}".format(ret))
@@ -656,15 +717,17 @@ class OpenshiftClusterManager():
             log.info("\nChecking smtp secret exists..")
             res = self.is_secret_existent(
                 secret_name="redhat-rhoam-smtp",
-                namespace="redhat-rhoam-operator"
+                namespace="redhat-rhoam-operator",
             )
             if res:
                 failure_flags.append(False)
                 log.info("redhat-rhoam-smpt secret found!")
             else:
                 failure_flags.append(True)
-                log.info("redhat-rhoam-smpt secret "
-                         "was not created during installation")
+                log.info(
+                    "redhat-rhoam-smpt secret "
+                    "was not created during installation"
+                )
                 if exit_on_failure:
                     sys.exit(1)
 
@@ -692,7 +755,8 @@ class OpenshiftClusterManager():
             addon_name="managed-api-service", exit_on_failure=exit_on_failure
         )
         self.wait_for_addon_uninstallation_to_complete(
-            addon_name="managed-api-service")
+            addon_name="managed-api-service"
+        )
 
     def create_idp(self):
         """Creates Identity Provider"""
@@ -721,23 +785,23 @@ class OpenshiftClusterManager():
 
             # Add this code as a workaround for IDP discovery issue
             # Delete the idp and re-create it again
-            log.info(
-                "Deleting idp and re-create it again "
-                "as a workaround for IDP discovery issue"
-            )
-            self.delete_user()
-            self.delete_idp()
+            # log.info(
+            #    "Deleting idp and re-create it again "
+            #    "as a workaround for IDP discovery issue"
+            # )
+            # self.delete_user()
+            # self.delete_idp()
 
-            time.sleep(10)
+            # time.sleep(10)
 
-            log.info("CMD: {}".format(cmd))
-            ret = execute_command(cmd)
-            if ret is None:
-                log.info(
-                    "Failed to add identity provider of "
-                    "type {}".format(self.idp_type)
-                )
-            self.add_user_to_group()
+            # log.info("CMD: {}".format(cmd))
+            # ret = execute_command(cmd)
+            # if ret is None:
+            #    log.info(
+            #        "Failed to add identity provider of "
+            #        "type {}".format(self.idp_type)
+            #    )
+            # self.add_user_to_group()
 
         elif self.idp_type == "ldap":
             ldap_yaml_file = (
@@ -776,13 +840,15 @@ class OpenshiftClusterManager():
     def delete_idp(self):
         """Deletes Identity Provider"""
 
-        cmd = "ocm delete idp -c {} {}".format(self.cluster_name, self.idp_name)
+        cmd = "ocm delete idp -c {} {}".format(
+            self.cluster_name, self.idp_name
+        )
         log.info("CMD: {}".format(cmd))
         ret = execute_command(cmd)
         if ret is None:
             log.info(
-                "Failed to delete identity provider of " "type {}".format(
-                    self.idp_name)
+                "Failed to delete identity provider of "
+                "type {}".format(self.idp_name)
             )
 
     def add_user_to_group(self, user="", group="cluster-admins"):
@@ -804,7 +870,9 @@ class OpenshiftClusterManager():
         log.info("CMD: {}".format(cmd))
         ret = execute_command(cmd)
         if ret is None:
-            log.info("Failed to add user {} to group " "{}".format(user, group))
+            log.info(
+                "Failed to add user {} to group " "{}".format(user, group)
+            )
 
     def delete_user(self, user="", group="cluster-admins"):
         """Deletes user"""
@@ -818,8 +886,9 @@ class OpenshiftClusterManager():
         log.info("CMD: {}".format(cmd))
         ret = execute_command(cmd)
         if ret is None:
-            log.info("Failed to delete user {} of group " "{}".format(
-                user, group))
+            log.info(
+                "Failed to delete user {} of group " "{}".format(user, group)
+            )
 
     def create_group(self, group_name):
         """Creates new group"""
@@ -837,22 +906,26 @@ class OpenshiftClusterManager():
         # Adds user ldap-admin1..ldap-adminN
         for i in range(1, int(self.num_users_to_create_per_group) + 1):
             self.add_user_to_group(
-                user="ldap-admin" + str(i), group="rhods-admins")
+                user="ldap-admin" + str(i), group="rhods-admins"
+            )
             self.add_user_to_group(
-                user="ldap-admin" + str(i), group="dedicated-admins")
+                user="ldap-admin" + str(i), group="dedicated-admins"
+            )
 
         self.create_group("rhods-users")
         # Adds user ldap-user1..ldap-userN
         for i in range(1, int(self.num_users_to_create_per_group) + 1):
             self.add_user_to_group(
-                user="ldap-user" + str(i), group="rhods-users")
+                user="ldap-user" + str(i), group="rhods-users"
+            )
 
         # Adds special users
         # "(", ")", "|", "<", ">" not working in OSD
         # "+" and ";" disabled for now
         for char in [".", "^", "$", "*", "?", "[", "]", "{", "}", "@"]:
             self.add_user_to_group(
-                user="ldap-special" + char, group="rhods-users")
+                user="ldap-special" + char, group="rhods-users"
+            )
 
         self.create_group("rhods-noaccess")
         # Adds user ldap-noaccess1..ldap-noaccessN
@@ -885,6 +958,24 @@ class OpenshiftClusterManager():
         # up even after cluster is in ready state
         time.sleep(300)
 
+    def _create_service_account_file(self):
+        """
+        Creates GCP service account file
+        """
+
+        replace_vars = {
+            "PROJECT_ID": self.gcp_sa_project_id,
+            "PRIVATE_KEY_ID": self.gcp_sa_priv_key_id,
+            "PRIVATE_KEY": self.gcp_sa_private_key,
+            "CLIENT_EMAIL": self.gcp_sa_client_email,
+            "CLIENT_ID": self.gcp_sa_client_id,
+            "CLIENT_CERT_URL": self.gcp_sa_client_cert_url,
+        }
+        template_file = "create_gcp_sa_json.jinja"
+        self._render_template(
+            template_file, self.service_account_file, replace_vars
+        )
+
     def install_rhods_addon(self):
         if not self.is_addon_installed():
             self.install_rhods()
@@ -900,7 +991,8 @@ class OpenshiftClusterManager():
                 output_filename="install_operator_gpu.json",
             )
             self.wait_for_addon_installation_to_complete(
-                addon_name="nvidia-gpu-addon")
+                addon_name="nvidia-gpu-addon"
+            )
         # Waiting 5 minutes to ensure all the services are up
         time.sleep(300)
 
@@ -932,8 +1024,9 @@ class OpenshiftClusterManager():
         log.info("CMD: {}".format(cmd))
         ret = execute_command(cmd)
         if ret is None:
-            log.info("Failed to delete osd cluster {}".format(
-                self.cluster_name))
+            log.info(
+                "Failed to delete osd cluster {}".format(self.cluster_name)
+            )
             sys.exit(1)
         self.wait_for_osd_cluster_to_get_deleted()
 
@@ -987,11 +1080,12 @@ class OpenshiftClusterManager():
             return ret
 
     def install_openshift_isv(
-        self, operator_name, channel, source, exit_on_failure=True):
+        self, operator_name, channel, source, exit_on_failure=True
+    ):
         replace_vars = {
             "ISV_NAME": operator_name,
             "CHANNEL": channel,
-            "SOURCE": source
+            "SOURCE": source,
         }
         template_file = "install_isv.jinja"
         output_file = "install_isv.yaml"
@@ -1037,7 +1131,8 @@ class OpenshiftClusterManager():
             return True
 
     def get_latest_osd_candidate_version(
-            self, osd_major_version, osd_minor_version):
+        self, osd_major_version, osd_minor_version
+    ):
         """
         get the latest  candidate version
         Args:
@@ -1049,7 +1144,9 @@ class OpenshiftClusterManager():
         """
         cmd = (
             "ocm list versions --channel-group  candidate |"
-            " grep  ^{}.{}|tail -1".format(osd_major_version, osd_minor_version)
+            " grep  ^{}.{}|tail -1".format(
+                osd_major_version, osd_minor_version
+            )
         )
         ret = execute_command(cmd)
         if ret is None:
@@ -1097,11 +1194,12 @@ class OpenshiftClusterManager():
             old_data.update(new_data)
             log.info(
                 "All the osd version in file is up to date."
-                " file_data:{}".format( old_data)
+                " file_data:{}".format(old_data)
             )
             new_data["RUN"] = None
             write_data_in_json(
-                filename=self.osd_latest_version_data, data=old_data)
+                filename=self.osd_latest_version_data, data=old_data
+            )
             return None
         else:
 
@@ -1113,12 +1211,12 @@ class OpenshiftClusterManager():
                 log.info(old_data.keys())
                 lst_to_trigger_job = compare_dicts(
                     new_data[self.osd_major_version],
-                    old_data[self.osd_major_version]
+                    old_data[self.osd_major_version],
                 )
             elif self.osd_major_version in old_data.keys():
                 lst_to_trigger_job = compare_dicts(
                     new_data[self.osd_major_version],
-                    old_data[self.osd_major_version]
+                    old_data[self.osd_major_version],
                 )
 
         old_data.update(new_data)
@@ -1126,10 +1224,12 @@ class OpenshiftClusterManager():
             old_data["RUN"] = lst_to_trigger_job
         else:
             old_data["RUN"] = list(
-                set(old_data["RUN"]) | set(lst_to_trigger_job))
+                set(old_data["RUN"]) | set(lst_to_trigger_job)
+            )
         # old_data["RUN"] = list(filter(None, lst_to_trigger_job))
         write_data_in_json(
-            filename=self.osd_latest_version_data, data=old_data)
+            filename=self.osd_latest_version_data, data=old_data
+        )
         log.info("File is updated to : {} ".format(old_data))
 
 
@@ -1145,12 +1245,13 @@ if __name__ == "__main__":
         "releases/download/v0.1.55/ocm-linux-amd64"
     )
     parser = argparse.ArgumentParser(
+        usage=argparse.SUPPRESS,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Script to generate test config file",
     )
 
     subparsers = parser.add_subparsers(
-        title="Available sub commands", help="sub-command help"
+        title="Available sub commands", help="Available sub commands"
     )
 
     # Argument parsers for get ods_latest version
@@ -1240,62 +1341,26 @@ if __name__ == "__main__":
     required_create_cluster_parser = create_cluster_parser.add_argument_group(
         "required arguments"
     )
+
+    aws_create_cluster_parser = create_cluster_parser.add_argument_group(
+        "  Options for creating OSD cluster in AWS"
+    )
+    gcp_create_cluster_parser = create_cluster_parser.add_argument_group(
+        "  Options for creating OSD cluster in GCP"
+    )
+
     create_cluster_parser._action_groups.append(optional_create_cluster_parser)
 
-    required_create_cluster_parser.add_argument(
-        "--aws-account-id",
-        help="aws account id",
+    optional_create_cluster_parser.add_argument(
+        "--provider",
+        help="Cloud provider. Options are [aws gcp]",
         action="store",
-        dest="aws_account_id",
-        required=True,
-    )
-    required_create_cluster_parser.add_argument(
-        "--aws-accesskey-id",
-        help="aws access key id",
-        action="store",
-        dest="aws_access_key_id",
-        required=True,
-    )
-    required_create_cluster_parser.add_argument(
-        "--aws-secret-accesskey",
-        help="aws secret access key",
-        action="store",
-        dest="aws_secret_access_key",
-        required=True,
+        dest="cloud_provider",
+        default="aws",
+        metavar="",
+        choices=["aws", "gcp"],
     )
 
-    optional_create_cluster_parser.add_argument(
-        "--cluster-name",
-        help="osd cluster name",
-        action="store",
-        dest="cluster_name",
-        metavar="",
-        default="osd-qe-1",
-    )
-    optional_create_cluster_parser.add_argument(
-        "--aws-region",
-        help="aws region",
-        action="store",
-        dest="aws_region",
-        metavar="",
-        default="us-east-1",
-    )
-    optional_create_cluster_parser.add_argument(
-        "--aws-instance-type",
-        help="aws instance type",
-        action="store",
-        dest="aws_instance_type",
-        metavar="",
-        default="m5.2xlarge",
-    )
-    optional_create_cluster_parser.add_argument(
-        "--num-compute-nodes",
-        help="Number of compute nodes",
-        action="store",
-        dest="num_compute_nodes",
-        metavar="",
-        default="3",
-    )
     optional_create_cluster_parser.add_argument(
         "--openshift-version",
         help="Openshift Version",
@@ -1312,6 +1377,235 @@ if __name__ == "__main__":
         metavar="",
         default="",
     )
+
+    optional_create_cluster_parser.add_argument(
+        "--cluster-name",
+        help="osd cluster name",
+        action="store",
+        dest="cluster_name",
+        metavar="",
+        default="qeaisrhods-xyz",
+    )
+
+    aws_create_cluster_parser.add_argument(
+        "--aws-account-id ",
+        help="aws account id",
+    )
+    aws_create_cluster_parser.add_argument(
+        "--aws-accesskey-id ",
+        help="aws access key id",
+    )
+    aws_create_cluster_parser.add_argument(
+        "--aws-secret-accesskey ",
+        help="aws secret access key",
+    )
+
+    aws_create_cluster_parser.add_argument(
+        "--aws-region ",
+        help="aws region",
+    )
+    aws_create_cluster_parser.add_argument(
+        "--aws-instance-type ",
+        help="aws instance type",
+        action="store",
+        dest="aws_instance_type",
+        metavar="",
+        default="m5.2xlarge",
+    )
+    aws_create_cluster_parser.add_argument(
+        "--num-compute-nodes ",
+        help="Number of compute nodes",
+        action="store",
+        dest="num_compute_nodes",
+        metavar="",
+        default="3",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--gcp-sa-project-id ",
+        help="gcp service account project id",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--gcp-sa-priv-key-id ",
+        help="gcp service account private key id",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--gcp-sa-private-key ",
+        help="gcp service account private key",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--gcp-sa-client-id ",
+        help="gcp service account client id",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--gcp-sa-client-email ",
+        help="gcp service account client email",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--gcp-sa-client-cert-url ",
+        help="gcp service account client cert url",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--compute-nodes ",
+        help="Number of compute nodes",
+        action="store",
+        dest="compute_nodes",
+        metavar="",
+        default="2",
+    )
+
+    gcp_create_cluster_parser.add_argument(
+        "--region ",
+        help="gcp region",
+        action="store",
+        dest="region",
+        metavar="",
+        default="us-central1",
+    )
+    gcp_create_cluster_parser.add_argument(
+        "--compute-machine-type ",
+        help="compute machine type",
+        action="store",
+        dest="compute_machine_type",
+        metavar="",
+        default="custom-8-32768",
+    )
+    known_args = ""
+    try:
+        f = io.StringIO()
+        with redirect_stdout(f), redirect_stderr(f):
+            known_args = parser.parse_known_args()
+    except SystemExit:
+        pass
+    if known_args and "cloud_provider" in known_args[0]:
+        provider = known_args[0].cloud_provider
+        if provider == "aws":
+            required_create_cluster_parser.add_argument(
+                "--aws-account-id",
+                help="aws account id",
+                action="store",
+                dest="aws_account_id",
+                required=True,
+            )
+            required_create_cluster_parser.add_argument(
+                "--aws-accesskey-id",
+                help="aws access key id",
+                action="store",
+                dest="aws_access_key_id",
+                required=True,
+            )
+            required_create_cluster_parser.add_argument(
+                "--aws-secret-accesskey",
+                help="aws secret access key",
+                action="store",
+                dest="aws_secret_access_key",
+                required=True,
+            )
+
+            optional_create_cluster_parser.add_argument(
+                "--aws-region",
+                help="aws region",
+                action="store",
+                dest="aws_region",
+                metavar="",
+                default="us-east-1",
+            )
+            optional_create_cluster_parser.add_argument(
+                "--aws-instance-type",
+                help="aws instance type",
+                action="store",
+                dest="aws_instance_type",
+                metavar="",
+                default="m5.2xlarge",
+            )
+            optional_create_cluster_parser.add_argument(
+                "--num-compute-nodes",
+                help="Number of compute nodes",
+                action="store",
+                dest="num_compute_nodes",
+                metavar="",
+                default="3",
+            )
+        elif provider == "gcp":
+            required_create_cluster_parser.add_argument(
+                "--gcp-sa-project-id",
+                help="gcp service account project id",
+                action="store",
+                dest="gcp_sa_project_id",
+                required=True,
+            )
+
+            required_create_cluster_parser.add_argument(
+                "--gcp-sa-priv-key-id",
+                help="gcp service account private key id",
+                action="store",
+                dest="gcp_sa_priv_key_id",
+                required=True,
+            )
+
+            required_create_cluster_parser.add_argument(
+                "--gcp-sa-private-key",
+                help="gcp service account private key",
+                action="store",
+                dest="gcp_sa_private_key",
+                required=True,
+            )
+
+            required_create_cluster_parser.add_argument(
+                "--gcp-sa-client-id",
+                help="gcp service account client id",
+                action="store",
+                dest="gcp_sa_client_id",
+                required=True,
+            )
+
+            required_create_cluster_parser.add_argument(
+                "--gcp-sa-client-email",
+                help="gcp service account client email",
+                action="store",
+                dest="gcp_sa_client_email",
+                required=True,
+            )
+
+            required_create_cluster_parser.add_argument(
+                "--gcp-sa-client-cert-url",
+                help="gcp service account client cert url",
+                action="store",
+                dest="gcp_sa_client_cert_url",
+                required=True,
+            )
+
+            optional_create_cluster_parser.add_argument(
+                "--compute-nodes",
+                help="Number of compute nodes",
+                action="store",
+                dest="compute_nodes",
+                metavar="",
+                default="2",
+            )
+
+            optional_create_cluster_parser.add_argument(
+                "--region",
+                help="gcp region",
+                action="store",
+                dest="region",
+                metavar="",
+                default="us-central1",
+            )
+            optional_create_cluster_parser.add_argument(
+                "--compute-machine-type",
+                help="compute machine type",
+                action="store",
+                dest="compute_machine_type",
+                metavar="",
+                default="custom-8-32768",
+            )
 
     create_cluster_parser.set_defaults(func=ocm_obj.create_cluster)
 
@@ -1470,11 +1764,15 @@ if __name__ == "__main__":
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    optional_machinepool_cluster_parser = add_machinepool_parser._action_groups.pop()
-    required_machinepool_cluster_parser = add_machinepool_parser.add_argument_group(
-        "required arguments"
+    optional_machinepool_cluster_parser = (
+        add_machinepool_parser._action_groups.pop()
     )
-    add_machinepool_parser._action_groups.append(optional_machinepool_cluster_parser)
+    required_machinepool_cluster_parser = (
+        add_machinepool_parser.add_argument_group("required arguments")
+    )
+    add_machinepool_parser._action_groups.append(
+        optional_machinepool_cluster_parser
+    )
 
     required_machinepool_cluster_parser.add_argument(
         "--cluster-name",
@@ -1517,7 +1815,10 @@ if __name__ == "__main__":
         default="gpunode",
     )
     optional_machinepool_cluster_parser.add_argument(
-        "--reuse-machine-pool", help="", action="store_true", dest="reuse_machine_pool"
+        "--reuse-machine-pool",
+        help="",
+        action="store_true",
+        dest="reuse_machine_pool",
     )
     add_machinepool_parser.set_defaults(func=ocm_obj.add_machine_pool)
 
@@ -1527,8 +1828,8 @@ if __name__ == "__main__":
         help=("Uninstall rhods addon cluster."),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    required_uninstall_rhods_parser = uninstall_rhods_parser.add_argument_group(
-        "required arguments"
+    required_uninstall_rhods_parser = (
+        uninstall_rhods_parser.add_argument_group("required arguments")
     )
 
     required_uninstall_rhods_parser.add_argument(
@@ -1565,8 +1866,8 @@ if __name__ == "__main__":
         help=("Uninstall rhoam addon cluster."),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    required_uninstall_rhoam_parser = uninstall_rhoam_parser.add_argument_group(
-        "required arguments"
+    required_uninstall_rhoam_parser = (
+        uninstall_rhoam_parser.add_argument_group("required arguments")
     )
 
     required_uninstall_rhoam_parser.add_argument(
@@ -1581,7 +1882,9 @@ if __name__ == "__main__":
     # Argument parsers for create_idp
     create_idp_parser = subparsers.add_parser(
         "create_idp",
-        help=("Add an Identity providers to determine how users log into the cluster."),
+        help=(
+            "Add an Identity providers to determine how users log into the cluster."
+        ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     optional_create_idp_parser = create_idp_parser._action_groups.pop()
