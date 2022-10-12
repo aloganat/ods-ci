@@ -1,0 +1,33 @@
+AUTOMATION_REPOS:
+        AUTOMATION_REPO: https://github.com/jgarciao/ods-ci
+        AUTOMATION_REPO_BRANCH: integration-with-jenkins-proposal
+AUTOMATION_SETUP:
+    RHODS:
+        FLAVOUR: CloudService
+        INSTALL: True
+        INSTALL_METHOD: AddOn
+        IMAGE_URL: NotApplicable
+    CLUSTER:
+        CREATE: True
+        TEST_ENVIRONMENT: stage
+        NAME: qe-osd-aws
+        TYPE: OSD
+        PROVIDER: AWS
+        AWS_PROVIDER_OPTIONS:
+            REGION: us-east-2
+            AVAILABILITY: single-zone
+            COMPUTE_NODE_INSTANCE_TYPE: m5.2xlarge
+            COMPUTE_NODE_COUNT: 2
+            USE_SPOT_INSTANCES: False
+        GPU_SUPPORT:
+            ENABLE_GPU_SUPPORT: True
+            GPU_NODE_INSTANCE_TYPE: g4dn.xlarge
+            GPU_NODE_COUNT: 1
+        OPENSHIFT_VERSION: 4.11-latest
+        OPENSHIFT_CHANNEL_GROUP: stable
+TEST_ARGUMENTS:
+    SCRIPT_ARGS: --test-variables-file automation-config.yml --extra-robot-args '-i ODS-505'
+AUTOMATION_TEARDOWN:
+    CLUSTER:
+        HIBERNATE: False
+        DELETE: True
