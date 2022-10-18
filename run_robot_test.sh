@@ -291,7 +291,7 @@ fi
 
 #Create a unique directory to store the output for current test run
 if [[ ! -d "${TEST_ARTIFACT_DIR}" ]]; then
-  mkdir ${TEST_ARTIFACT_DIR}
+  mkdir -p ${TEST_ARTIFACT_DIR}
 fi
 case "$(uname -s)" in
     Darwin)
