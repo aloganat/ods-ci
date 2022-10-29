@@ -60,7 +60,7 @@ items:
         aws:
           region: {{ aws_region|default("us-east-1") }}
       pullSecret: ""
-      sshKey: {{ ssh_key|default(" ") }}
+      sshKey: {{ ssh_key }}
   metadata:
     name: aws-sno-install-config
     namespace: rhods
