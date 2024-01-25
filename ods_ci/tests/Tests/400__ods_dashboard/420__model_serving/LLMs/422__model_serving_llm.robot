@@ -73,8 +73,8 @@ Verify User Can Serve And Query A Model
     Query Model Multiple Times    model_name=${flan_model_name}
     ...    inference_type=streaming    n_times=1
     ...    namespace=${test_namespace}
-    [Teardown]    Clean Up Test Project    test_ns=${test_namespace}
-    ...    isvc_names=${models_names}
+    # [Teardown]    Clean Up Test Project    test_ns=${test_namespace}
+    # ...    isvc_names=${models_names}
 
 Verify User Can Deploy Multiple Models In The Same Namespace
     [Documentation]    Checks if user can deploy and query multiple models in the same namespace
