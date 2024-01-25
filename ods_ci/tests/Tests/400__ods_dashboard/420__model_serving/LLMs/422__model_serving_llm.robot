@@ -7,7 +7,7 @@ Resource          ../../../../Resources/Page/Operators/ISVs.resource
 Resource          ../../../../Resources/CLI/ModelServing/llm.resource
 Library            OpenShiftLibrary
 Suite Setup       Install Model Serving Stack Dependencies
-Suite Teardown    RHOSi Teardown
+#Suite Teardown    RHOSi Teardown
 Test Tags         KServe
 
 
