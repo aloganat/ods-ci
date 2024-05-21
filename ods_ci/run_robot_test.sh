@@ -23,7 +23,9 @@ EMAIL_SERVER_UNSECURE=false
 OPEN_REPORT_IN_BROWSER=false
 REPORT_BROWSER="firefox" # Default browser to open reports in
 SUBFOLDER=false
-
+SL_TOKEN="eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL1BST0QtUE9DLmF1dGguc2VhbGlnaHRzLmlvLyIsImp3dGlkIjoiUFJPRC1QT0MsbmVlZFRvUmVtb3ZlLEFQSUdXLWVmZmQwY2NiLTlmZjctNGI4ZS1iZWY3LTZiNWM2YmNhNDIwYywxNzE1ODU0NzA5OTc4Iiwic3ViamVjdCI6InJlZGhhdC1wb2NAYWdlbnQiLCJhdWRpZW5jZSI6WyJhZ2VudHMiXSwieC1zbC1yb2xlIjoiYWdlbnQiLCJ4LXNsLXNlcnZlciI6Imh0dHBzOi8vcmVkaGF0LXBvYy5zZWFsaWdodHMuY28vYXBpIiwic2xfaW1wZXJfc3ViamVjdCI6IiIsImlhdCI6MTcxNTg1NDcwOX0.bWXLTcrXtCT1LR02OlTElMomwd3f1uOG5OUoPDPENW8reZ3T6CCAGxXP_z-zDVIN-_3P3HPDlmh8w1hru4yPWvIY4kiDqzh1vWHsB1abTlLhzBFhOcIWrX2ynPGzq65cBHwPmcNSNH65ps68O75Y0FcFPx271ZqTTxNTfLP2xlTeveNi5Ma8eWWe1BR_nooaKx3RuuIV5SYe_ZJKvELaJ4nIzWXeuL9kxMjAJJThXC7d69-3UeUDGwdt5abuNcdaoNBgAshL9MZQSsn22oI477g9wCNM3UkaUUVaFlwFML5JOjkheM2t6Xn4gGY7i1u2dB0iUBKhJARQoMFcRKHeXAb4lGF0D15fPdsA19bMa7dUtGtvXTC23LVSsiFzWIbpXbx-6AWS6flPAthlD0S-UPS7oY-gmxVQqYMj3GtgBBmoz2oRAO6Shbfl8KcHJxENxLAwxMkT4hRiWX2MJoKmDrXB6e4oxasW20gmrS5CRwbZw5gv5vrtsI883yRFcN8byQXED1J_LAH2pVvyY2v9RXJyAoba6VT72KPz4rBqtB7tEoXVct5_6m_OeYlp1O6wpsoIOBP7fB_gFZgglingpXOVGEt7otIysaFSV7gjqyO90c4KYTd92-tjFhoNNBgTl-jOXrrG-mOG5X9nt_YkzEiZ0iFBNyEOCRmMiibUZPQ"
+SL_BUILD_SESSION_ID="1234"
+SL_LAB_ID=""
 currentpath=$(pwd)
 readonly currentpath
 
@@ -372,7 +374,7 @@ if ! ${SUBFOLDER}; then
 fi
 
 
-robot ${TEST_EXCLUDE_TAG} ${TEST_INCLUDE_TAG} -d ${TEST_ARTIFACT_DIR} -x xunit_test_result.xml -r test_report.html ${TEST_VARIABLES} --variablefile ${TEST_VARIABLES_FILE} --exclude TBC ${EXTRA_ROBOT_ARGS} ${TEST_CASE_FILE}
+robot --listener "ods_ci/SLListener.py:redhat-poc.sealights.co:${SL_TOKEN}:${SL_BUILD_SESSION_ID}:Robot Tests:${SL_LAB_ID}" ${TEST_EXCLUDE_TAG} ${TEST_INCLUDE_TAG} -d ${TEST_ARTIFACT_DIR} -x xunit_test_result.xml -r test_report.html ${TEST_VARIABLES} --variablefile ${TEST_VARIABLES_FILE} --exclude TBC ${EXTRA_ROBOT_ARGS} ${TEST_CASE_FILE}
 # shellcheck disable=SC2116
 exit_status=$(echo $?)
 echo "${exit_status}"

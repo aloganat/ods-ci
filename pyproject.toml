@@ -35,6 +35,10 @@ junitparser = "3.1.2"
 python-terraform = "0.10.1"
 fuzzywuzzy = "^0.18.0"
 python-levenshtein = "^0.25.1"
+opentelemetry-distro = "^0.45b0"
+robotframework-pabot = "^2.18.0"
+pyjwt = "^2.8.0"
+opentelemetry-instrumentation = "^0.45b0"
 
 [tool.poetry.group.dev.dependencies]
 robotframework-lsp = ">=1.11.0"
