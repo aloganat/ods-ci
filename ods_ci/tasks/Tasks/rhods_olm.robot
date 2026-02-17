@@ -20,7 +20,7 @@ ${RHOAI_VERSION}                ${EMPTY}
 *** Tasks ***
 Can Install RHODS Operator
   [Tags]  install
-  IF  "${PRODUCT}" == "ODH"
+  IF  "${PRODUCT}" == "ODH" and "${UPDATE_CHANNEL}" != "odh-stable"
       Set Global Variable  ${OPERATOR_NAME_LABEL}  opendatahub-operator
       Set Global Variable  ${MODEL_REGISTRY_NAMESPACE}    odh-model-registries
       Set Global Variable  ${OPERATOR_YAML_LABEL}  opendatahub-operator
@@ -42,7 +42,7 @@ Can Install RHODS Operator
 
 Can Uninstall RHODS Operator
   [Tags]  uninstall
-  IF  "${PRODUCT}" == "ODH"
+  IF  "${PRODUCT}" == "ODH" and "${UPDATE_CHANNEL}" != "odh-stable"
       IF  "${UPDATE_CHANNEL}" == "odh-nightlies"
           Set Global Variable  ${OPERATOR_NAME}  rhods-operator
       ELSE

@@ -117,7 +117,7 @@ Install RHODS
   END
   Clone OLM Install Repo
   Configure Custom Namespaces
-  IF   "${PRODUCT}" == "ODH"
+  IF   "${PRODUCT}" == "ODH" and "${UPDATE_CHANNEL}" != "odh-stable"
        ${csv_display_name} =    Set Variable    ${ODH_CSV_DISPLAY}
   ELSE
        ${csv_display_name} =    Set Variable    ${RHODS_CSV_DISPLAY}
@@ -269,7 +269,13 @@ Get Helm Path For Component
     RETURN    ${EMPTY}
 
 Verify RHODS Installation
-  Set Global Variable    ${DASHBOARD_APP_NAME}    ${PRODUCT.lower()}-dashboard
+
+  IF    "${UPDATE_CHANNEL}" == "odh-stable"
+      Set Global Variable    ${DASHBOARD_APP_NAME}    rhods-dashboard
+  ELSE
+      Set Global Variable    ${DASHBOARD_APP_NAME}    ${PRODUCT.lower()}-dashboard
+  END
+
   Log    Verifying RHODS installation    console=yes
   Log    Waiting for all RHODS resources to be up and running    console=yes
   Wait For Deployment Replica To Be Ready    namespace=${OPERATOR_NAMESPACE}
@@ -278,7 +284,7 @@ Verify RHODS Installation
   Log  Verified ${OPERATOR_NAMESPACE}  console=yes
 
   IF   "${cluster_type}" == "managed"
-       IF   "${PRODUCT}" == "ODH"
+       IF   "${PRODUCT}" == "ODH" and "${UPDATE_CHANNEL}" != "odh-stable"
             Apply DSCInitialization CustomResource    dsci_name=${DSCI_NAME}
             Wait For DSCInitialization CustomResource To Be Ready
             Apply DataScienceCluster CustomResource    dsc_name=${DSC_NAME}
@@ -309,7 +315,7 @@ Verify RHODS Installation
   ELSE
       IF  "${APPLICATIONS_NAMESPACE}" != "${DEFAULT_APPLICATIONS_NAMESPACE_RHOAI}" and "${APPLICATIONS_NAMESPACE}" != "${DEFAULT_APPLICATIONS_NAMESPACE_ODH}"
           Create DSCI With Custom Namespaces
-      ELSE IF   "${UPDATE_CHANNEL}" != "odh-nightlies" and "${PRODUCT}" == "ODH"
+      ELSE IF   "${UPDATE_CHANNEL}" != "odh-nightlies" and "${UPDATE_CHANNEL}" != "odh-stable" and "${PRODUCT}" == "ODH"
             # this case is to handle ODH community, which needs to create the DSCI
             Apply DSCInitialization CustomResource    dsci_name=${DSCI_NAME}
             Wait For DSCInitialization CustomResource To Be Ready
