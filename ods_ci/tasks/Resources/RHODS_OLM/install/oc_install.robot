@@ -58,7 +58,7 @@ ${TELEMETRY_CHANNEL_NAME}=  stable
 ${TELEMETRY_NS}=  openshift-opentelemetry-operator
 ${KUEUE_OP_NAME}=  kueue-operator
 ${KUEUE_SUB_NAME}=  kueue-operator
-${KUEUE_CHANNEL_NAME}=  stable-v1.3
+${KUEUE_CHANNEL_NAME}=  stable-v1.4
 ${KUEUE_NS}=  openshift-kueue-operator
 ${JOBSET_OP_NAME}=  job-set
 ${JOBSET_SUB_NAME}=  job-set
@@ -870,25 +870,48 @@ Create DataScienceCluster CustomResource Using Test Variables
     ${file_path} =    Set Variable    tasks/Resources/Files/
     Copy File    source=${file_path}${dsc_template}    destination=${file_path}dsc_apply.yml
     Run    sed -i'' -e 's/<dsc_name>/${dsc_name}/' ${file_path}dsc_apply.yml
-    # modelsAsAService requires parent aigateway Managed (operator #3723).
-    # Force aigateway=Managed whenever modelsasservice is Managed, even if callers
-    # explicitly set aigateway=Removed (invalid combo that left MaaS Managed alone).
+    # Detect whether this cluster uses the 3.5+ MaaS DSC field (aigateway.modelsAsAService)
+    # or the legacy 3.4 field (kserve.modelsAsService). Check the installed CRD schema
+    # directly — this works for both ODH and RHOAI and is version-string-independent.
+    # In 3.5+, MaaS moved from kserve.modelsAsService → aigateway.modelsAsAService (operator #3723).
+    # On 3.4.x clusters, aigateway.* fields are unknown and silently dropped by the API server.
+    # Use the storage version to avoid hardcoding version index.
+    # Empty output on non-zero rc → legacy path; non-zero exit treated as unknown (safe default).
+    ${_crd_jsonpath} =    Catenate    SEPARATOR=
+    ...    {.spec.versions[?(@.storage==true)].schema.openAPIV3Schema
+    ...    .properties.spec.properties.components
+    ...    .properties.aigateway.properties.modelsAsAService}
+    ${_crd_rc}    ${_aigateway_in_schema} =    Run And Return Rc And Output
+    ...    oc get crd datascienceclusters.datasciencecluster.opendatahub.io -o jsonpath='${_crd_jsonpath}' 2>/dev/null    #robocop:disable
+    ${_is_pre_35} =    Evaluate    ${_crd_rc} == 0 and '${_aigateway_in_schema}' == ''
+    ${_aigateway_present} =    Evaluate    not ${_is_pre_35}
+    Log To Console    DSC CRD rc=${_crd_rc} aigateway.modelsAsAService present: ${_aigateway_present}
     ${maas_configured} =    Run Keyword And Return Status
     ...    Dictionary Should Contain Key    ${COMPONENTS}    modelsasservice
     IF    ${maas_configured} and '${COMPONENTS.modelsasservice}' == 'Managed'
-        ${aigateway_present} =    Run Keyword And Return Status
-        ...    Dictionary Should Contain Key    ${COMPONENTS}    aigateway
-        ${aigateway_already_managed} =    Set Variable    ${FALSE}
-        IF    ${aigateway_present}
-            ${aigateway_already_managed} =    Evaluate    '${COMPONENTS.aigateway}' == 'Managed'
-        END
-        IF    not ${aigateway_already_managed}
-            Set To Dictionary    ${COMPONENTS}    aigateway=Managed
-            # Keep COMPONENTS visible to Apply DataScienceCluster verification/logging
-            Set Global Variable    ${COMPONENTS}    # robocop: disable:replace-set-variable-with-var
-            Log To Console    modelsasservice=Managed requires aigateway=Managed; updated COMPONENTS
+        IF    ${_is_pre_35}
+            # 3.4.x: populate kserve.modelsAsService (legacy field); aigateway section not understood.
+            Run    sed -i'' -e 's/<modelsasservice_legacy_value>/Managed/' ${file_path}dsc_apply.yml
+            Log To Console    3.4 cluster: using kserve.modelsAsService=Managed for MaaS
+        ELSE
+            # 3.5+: modelsAsAService requires parent aigateway Managed (operator #3723).
+            # Force aigateway=Managed when callers only set modelsasservice=Managed.
+            ${aigateway_present} =    Run Keyword And Return Status
+            ...    Dictionary Should Contain Key    ${COMPONENTS}    aigateway
+            ${aigateway_already_managed} =    Set Variable    ${FALSE}
+            IF    ${aigateway_present}
+                ${aigateway_already_managed} =    Evaluate    '${COMPONENTS.aigateway}' == 'Managed'
+            END
+            IF    not ${aigateway_already_managed}
+                Set To Dictionary    ${COMPONENTS}    aigateway=Managed
+                # Keep COMPONENTS visible to Apply DataScienceCluster verification/logging
+                Set Global Variable    ${COMPONENTS}    # robocop: disable:replace-set-variable-with-var
+                Log To Console    modelsasservice=Managed requires aigateway=Managed; updated COMPONENTS
+            END
         END
     END
+    # Fill legacy placeholder with Removed when not on 3.4 or MaaS not Managed
+    Run    sed -i'' -e 's/<modelsasservice_legacy_value>/Removed/' ${file_path}dsc_apply.yml
     FOR    ${cmp}    IN    @{COMPONENT_LIST}
             IF    $cmp not in $COMPONENTS
                 Run    sed -i'' -e 's/<${cmp}_value>/Removed/' ${file_path}dsc_apply.yml
